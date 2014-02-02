@@ -1,0 +1,12 @@
+## One-step build
+
+    ./configure \
+      --prefix=/path/to/your/prefix  \
+      --with-pam \
+      --with-audit=bsm \
+      --with-kerberos5 \
+      --with-keychain=apple \
+      CPPFLAGS='-D_UTMPX_COMPAT -D__APPLE_LAUNCHD__ -D__APPLE_MEMBERSHIP__ -D__APPLE_XSAN__ -F/System/Library/Frameworks/DirectoryService.framework' \
+      LDFLAGS='-framework DirectoryService' \
+    && make \
+    && make install
