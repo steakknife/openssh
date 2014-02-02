@@ -548,6 +548,7 @@ main() { if (NSVersionOfRunTimeLibrary("System") >= (60 << 16))
 	    [Use tunnel device compatibility to OpenBSD])
 	AC_DEFINE([SSH_TUN_PREPEND_AF], [1],
 	    [Prepend the address family to IP tunnel traffic])
+  KEYCHAIN="apple"
 	m4_pattern_allow([AU_IPv])
 	AC_CHECK_DECL([AU_IPv4], [], 
 	    AC_DEFINE([AU_IPv4], [0], [System only supports IPv4 audit records])
@@ -4549,6 +4550,32 @@ AC_CHECK_MEMBER([struct utmp.ut_line], [], [
 #include <lastlog.h>
 #endif
 	])
+dnl Keychain support
+AC_ARG_WITH(keychain,
+ [  --with-keychain=apple   Use Mac OS X Keychain],
+ [
+   case "$withval" in
+   apple|no)
+     KEYCHAIN=$withval
+     ;;
+   *)
+     AC_MSG_ERROR(invalid keychain type: $withval)
+     ;;
+   esac
+ ]
+)
+if test ! -z "$KEYCHAIN" -a "$KEYCHAIN" != "no"; then
+ case "$KEYCHAIN" in
+ apple)
+   AC_CHECK_HEADERS(Security/Security.h, [
+       CPPFLAGS="$CPPFLAGS -D__APPLE_KEYCHAIN__"
+       KEYCHAIN_LDFLAGS="-framework Security -framework CoreFoundation"
+       AC_SUBST(KEYCHAIN_LDFLAGS)
+       ],
+       AC_MSG_WARN([Security framework not found. Disabling Mac OS X Keychain support.]))
+   ;;
+ esac
+fi
 
 dnl Adding -Werror to CFLAGS early prevents configure tests from running.
 dnl Add now.

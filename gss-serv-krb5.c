@@ -171,6 +171,7 @@ ssh_gssapi_krb5_storecreds(ssh_gssapi_client *client)
 	OM_uint32 maj_status, min_status;
 	int len;
 	const char *new_ccname;
+  const char *errmsg;
 
 	if (client->creds == NULL) {
 		debug("No credentials stored");
@@ -183,8 +184,9 @@ ssh_gssapi_krb5_storecreds(ssh_gssapi_client *client)
 #ifdef HEIMDAL
 	if ((problem = krb5_cc_new_unique(krb_context, krb5_fcc_ops.prefix,
      NULL, &ccache)) != 0) {
-		logit("krb5_cc_gen_new(): %.100s",
-		    krb5_get_error_message(krb_context, problem));
+    errmsg = krb5_get_error_message(krb_context, problem);
+		logit("krb5_cc_gen_new(): %.100s", errmsg);
+    krb5_free_error_message(krb_context, errmsg);
 		return;
 	}
 #else

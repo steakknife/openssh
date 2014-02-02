@@ -74,18 +74,6 @@
 /* Define if your snprintf is busted */
 #undef BROKEN_SNPRINTF
 
-/* platform uses an in-memory credentials cache */
-#undef USE_CCAPI
-
-/* platform has a Security Authorization Session API */
-#undef USE_SECURITY_SESSION_API
-
-/* Define to 1 if you have the `copyfile' function. */
-#undef HAVE_COPYFILE
-
-/* Define to 1 if you have the <copyfile.h> header file. */
-#undef HAVE_COPYFILE_H
-
 /* FreeBSD strnvis does not do what we need */
 #undef BROKEN_STRNVIS
 
@@ -864,6 +852,9 @@
 /* Define to 1 if you have the <security/pam_appl.h> header file. */
 #undef HAVE_SECURITY_PAM_APPL_H
 
+/* Define to 1 if you have the <Security/Security.h> header file. */
+#undef HAVE_SECURITY_SECURITY_H
+
 /* Define to 1 if you have the `sendmsg' function. */
 #undef HAVE_SENDMSG
 
@@ -1615,6 +1606,11 @@
 
 /* Define if xauth is found in your path */
 #undef XAUTH_PATH
+
+/* Enable large inode numbers on Mac OS X 10.5.  */
+#ifndef _DARWIN_USE_64_BIT_INODE
+# define _DARWIN_USE_64_BIT_INODE 1
+#endif
 
 /* Number of bits in a file offset, on hosts where this is settable. */
 #undef _FILE_OFFSET_BITS

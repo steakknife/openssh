@@ -257,7 +257,6 @@ ssh_krb5_cc_gen(krb5_context ctx, krb5_ccache *ccache) {
 
 #else
 	char cctemplate[] = "FILE:/tmp/krb5cc_%d_XXXXXXXXXX";
-	int tmpfd;
 
 	ret = snprintf(ccname, sizeof(ccname),
 		       cctemplate, geteuid());
