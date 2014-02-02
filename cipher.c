@@ -77,18 +77,29 @@ struct Cipher {
 
 static const struct Cipher ciphers[] = {
 	{ "none",	SSH_CIPHER_NONE, 8, 0, 0, 0, 0, 0, EVP_enc_null },
+#ifndef OPENSSL_NO_DES
 	{ "des",	SSH_CIPHER_DES, 8, 8, 0, 0, 0, 1, EVP_des_cbc },
 	{ "3des",	SSH_CIPHER_3DES, 8, 16, 0, 0, 0, 1, evp_ssh1_3des },
+#endif
+#ifndef OPENSSL_NO_BF
 	{ "blowfish",	SSH_CIPHER_BLOWFISH, 8, 32, 0, 0, 0, 1, evp_ssh1_bf },
-
+#endif
+#ifndef OPENSSL_NO_DES
 	{ "3des-cbc",	SSH_CIPHER_SSH2, 8, 24, 0, 0, 0, 1, EVP_des_ede3_cbc },
+#endif
+#ifndef OPENSSL_NO_BF
 	{ "blowfish-cbc",
 			SSH_CIPHER_SSH2, 8, 16, 0, 0, 0, 1, EVP_bf_cbc },
+#endif
+#ifndef OPENSSL_NO_RC4
 	{ "cast128-cbc",
 			SSH_CIPHER_SSH2, 8, 16, 0, 0, 0, 1, EVP_cast5_cbc },
+#endif
+#ifndef OPENSSL_NO_RC4
 	{ "arcfour",	SSH_CIPHER_SSH2, 8, 16, 0, 0, 0, 0, EVP_rc4 },
 	{ "arcfour128",	SSH_CIPHER_SSH2, 8, 16, 0, 0, 1536, 0, EVP_rc4 },
 	{ "arcfour256",	SSH_CIPHER_SSH2, 8, 32, 0, 0, 1536, 0, EVP_rc4 },
+#endif
 	{ "aes128-cbc",	SSH_CIPHER_SSH2, 16, 16, 0, 0, 0, 1, EVP_aes_128_cbc },
 	{ "aes192-cbc",	SSH_CIPHER_SSH2, 16, 24, 0, 0, 0, 1, EVP_aes_192_cbc },
 	{ "aes256-cbc",	SSH_CIPHER_SSH2, 16, 32, 0, 0, 0, 1, EVP_aes_256_cbc },
@@ -465,9 +476,12 @@ cipher_get_keyiv_len(const CipherContext *cc)
 	const Cipher *c = cc->cipher;
 	int ivlen;
 
-	if (c->number == SSH_CIPHER_3DES)
-		ivlen = 24;
-	else if ((cc->cipher->flags & CFLAG_CHACHAPOLY) != 0)
+#ifndef OPENSSL_NO_DES
+  if (c->number == SSH_CIPHER_3DES)
+    ivlen = 24;
+  else
+#endif
+	if ((cc->cipher->flags & CFLAG_CHACHAPOLY) != 0)
 		ivlen = 0;
 	else
 		ivlen = EVP_CIPHER_CTX_iv_length(&cc->evp);
@@ -488,8 +502,12 @@ cipher_get_keyiv(CipherContext *cc, u_char *iv, u_int len)
 
 	switch (c->number) {
 	case SSH_CIPHER_SSH2:
+#ifndef OPENSSL_NO_DES
 	case SSH_CIPHER_DES:
+#endif
+#ifndef OPENSSL_NO_BF
 	case SSH_CIPHER_BLOWFISH:
+#endif
 		evplen = EVP_CIPHER_CTX_iv_length(&cc->evp);
 		if (evplen <= 0)
 			return;
@@ -508,9 +526,11 @@ cipher_get_keyiv(CipherContext *cc, u_char *iv, u_int len)
 #endif
 		memcpy(iv, cc->evp.iv, len);
 		break;
+#ifndef OPENSSL_NO_DES
 	case SSH_CIPHER_3DES:
 		ssh1_3des_iv(&cc->evp, 0, iv, 24);
 		break;
+#endif
 	default:
 		fatal("%s: bad cipher %d", __func__, c->number);
 	}
@@ -527,8 +547,12 @@ cipher_set_keyiv(CipherContext *cc, u_char *iv)
 
 	switch (c->number) {
 	case SSH_CIPHER_SSH2:
+#ifndef OPENSSL_NO_DES
 	case SSH_CIPHER_DES:
+#endif
+#ifndef OPENSSL_NO_BF
 	case SSH_CIPHER_BLOWFISH:
+#endif
 		evplen = EVP_CIPHER_CTX_iv_length(&cc->evp);
 		if (evplen == 0)
 			return;
@@ -544,9 +568,11 @@ cipher_set_keyiv(CipherContext *cc, u_char *iv)
 #endif
 		memcpy(cc->evp.iv, iv, evplen);
 		break;
+#ifndef OPENSSL_NO_DES
 	case SSH_CIPHER_3DES:
 		ssh1_3des_iv(&cc->evp, 1, iv, 24);
 		break;
+#endif
 	default:
 		fatal("%s: bad cipher %d", __func__, c->number);
 	}
@@ -558,12 +584,14 @@ cipher_get_keycontext(const CipherContext *cc, u_char *dat)
 	const Cipher *c = cc->cipher;
 	int plen = 0;
 
+#ifndef OPENSSL_NO_RC4
 	if (c->evptype == EVP_rc4) {
 		plen = EVP_X_STATE_LEN(cc->evp);
 		if (dat == NULL)
 			return (plen);
 		memcpy(dat, EVP_X_STATE(cc->evp), plen);
 	}
+#endif
 	return (plen);
 }
 
@@ -573,8 +601,10 @@ cipher_set_keycontext(CipherContext *cc, u_char *dat)
 	const Cipher *c = cc->cipher;
 	int plen;
 
+#ifndef OPENSSL_NO_RC4
 	if (c->evptype == EVP_rc4) {
 		plen = EVP_X_STATE_LEN(cc->evp);
 		memcpy(EVP_X_STATE(cc->evp), dat, plen);
 	}
+#endif
 }
