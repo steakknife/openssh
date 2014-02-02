@@ -19,8 +19,13 @@
 #include <sys/stat.h>
 #include <sys/param.h>
 
+#ifdef __APPLE_CRYPTO__
+#include "ossl-evp.h"
+#include "ossl-pem.h"
+#else
 #include <openssl/evp.h>
 #include <openssl/pem.h>
+#endif
 #include "openbsd-compat/openssl-compat.h"
 
 #include <errno.h>
@@ -1566,7 +1571,9 @@ do_ca_sign(struct passwd *pw, int argc, char **argv)
 		}
 	}
 
+#ifdef ENABLE_PKCS11
 	pkcs11_init(1);
+#endif
 	tmp = tilde_expand_filename(ca_key_path, pw->pw_uid);
 	if (pkcs11provider != NULL) {
 		if ((ca = load_pkcs11_key(tmp)) == NULL)
@@ -1649,7 +1656,9 @@ do_ca_sign(struct passwd *pw, int argc, char **argv)
 		key_free(public);
 		free(out);
 	}
+#ifdef ENABLE_PKCS11
 	pkcs11_terminate();
+#endif
 	exit(0);
 }
 

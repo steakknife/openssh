@@ -178,7 +178,11 @@ static void STORE_UINT32_REVERSED(void *ptr, UINT32 x)
 /* OpenSSL's AES */
 #include "openbsd-compat/openssl-compat.h"
 #ifndef USE_BUILTIN_RIJNDAEL
-# include <openssl/aes.h>
+# ifdef __APPLE_CRYPTO__
+#  include "ossl-aes.h"
+# else
+#  include <openssl/aes.h>
+# endif
 #endif
 typedef AES_KEY aes_int_key[1];
 #define aes_encryption(in,out,int_key)                  \
@@ -1209,6 +1213,9 @@ int umac_delete(struct umac_ctx *ctx)
 /* Deallocate the ctx structure */
 {
     if (ctx) {
+#ifdef __APPLE_CRYPTO__
+	AES_destroy_ctx(&ctx->pdf.prf_key);
+#endif
         if (ALLOC_BOUNDARY)
             ctx = (struct umac_ctx *)ctx->free_ptr;
         free(ctx);

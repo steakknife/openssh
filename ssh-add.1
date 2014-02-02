@@ -43,7 +43,7 @@
 .Nd adds private key identities to the authentication agent
 .Sh SYNOPSIS
 .Nm ssh-add
-.Op Fl cDdkLlXx
+.Op Fl cDdkLlXxKA
 .Op Fl t Ar life
 .Op Ar
 .Nm ssh-add
@@ -130,6 +130,12 @@ specified in
 Unlock the agent.
 .It Fl x
 Lock the agent with a password.
+.It Fl K
+When adding identities, each passphrase will also be stored in your
+keychain.  When removing identities with -d, each passphrase will be
+removed from your keychain.
+.It Fl A
+Add identities to the agent using any passphrases stored in your keychain.
 .El
 .Sh ENVIRONMENT
 .Bl -tag -width Ds

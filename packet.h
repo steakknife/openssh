@@ -18,10 +18,14 @@
 
 #include <termios.h>
 
+#ifdef __APPLE_CRYPTO__
+#include "ossl-bn.h"
+#else
 #include <openssl/bn.h>
 #ifdef OPENSSL_HAS_ECC
 #include <openssl/ec.h>
 #endif
+#endif /* __APPLE_CRYPTO__ */
 
 void     packet_set_connection(int, int);
 void     packet_set_timeout(int, int);

@@ -30,7 +30,11 @@
 
 #include <signal.h>
 
+#ifdef __APPLE_CRYPTO__
+#include "ossl-rsa.h"
+#else
 #include <openssl/rsa.h>
+#endif
 
 #ifdef HAVE_LOGIN_CAP
 #include <login_cap.h>

@@ -132,11 +132,16 @@ typedef enum {
 	oClearAllForwardings, oNoHostAuthenticationForLocalhost,
 	oEnableSSHKeysign, oRekeyLimit, oVerifyHostKeyDNS, oConnectTimeout,
 	oAddressFamily, oGssAuthentication, oGssDelegateCreds,
+	oGssTrustDns, oGssKeyEx, oGssClientIdentity, oGssRenewalRekey,
+	oGssServerIdentity, 
 	oServerAliveInterval, oServerAliveCountMax, oIdentitiesOnly,
 	oSendEnv, oControlPath, oControlMaster, oControlPersist,
 	oHashKnownHosts,
 	oTunnel, oTunnelDevice, oLocalCommand, oPermitLocalCommand,
 	oVisualHostKey, oUseRoaming, oZeroKnowledgePasswordAuthentication,
+#ifdef __APPLE_KEYCHAIN__
+	oAskPassGUI,
+#endif
 	oKexAlgorithms, oIPQoS, oRequestTTY, oIgnoreUnknown,
 	oIgnoredUnknownOption, oDeprecated, oUnsupported
 } OpCodes;
@@ -172,10 +177,19 @@ static struct {
 	{ "afstokenpassing", oUnsupported },
 #if defined(GSSAPI)
 	{ "gssapiauthentication", oGssAuthentication },
+	{ "gssapikeyexchange", oGssKeyEx },
 	{ "gssapidelegatecredentials", oGssDelegateCreds },
+	{ "gssapitrustdns", oGssTrustDns },
+	{ "gssapiclientidentity", oGssClientIdentity },
+	{ "gssapiserveridentity", oGssServerIdentity },
+	{ "gssapirenewalforcesrekey", oGssRenewalRekey },
 #else
 	{ "gssapiauthentication", oUnsupported },
+	{ "gssapikeyexchange", oUnsupported },
 	{ "gssapidelegatecredentials", oUnsupported },
+	{ "gssapitrustdns", oUnsupported },
+	{ "gssapiclientidentity", oUnsupported },
+	{ "gssapirenewalforcesrekey", oUnsupported },
 #endif
 	{ "fallbacktorsh", oDeprecated },
 	{ "usersh", oDeprecated },
@@ -245,6 +259,9 @@ static struct {
 	    oZeroKnowledgePasswordAuthentication },
 #else
 	{ "zeroknowledgepasswordauthentication", oUnsupported },
+#endif
+#ifdef __APPLE_KEYCHAIN__
+	{ "askpassgui", oAskPassGUI },
 #endif
 	{ "kexalgorithms", oKexAlgorithms },
 	{ "ipqos", oIPQoS },
@@ -516,8 +533,28 @@ parse_flag:
 		intptr = &options->gss_authentication;
 		goto parse_flag;
 
+	case oGssKeyEx:
+		intptr = &options->gss_keyex;
+		goto parse_flag;
+
 	case oGssDelegateCreds:
 		intptr = &options->gss_deleg_creds;
+		goto parse_flag;
+
+	case oGssTrustDns:
+		intptr = &options->gss_trust_dns;
+		goto parse_flag;
+
+	case oGssClientIdentity:
+		charptr = &options->gss_client_identity;
+		goto parse_string;
+
+	case oGssServerIdentity:
+		charptr = &options->gss_server_identity;
+		goto parse_string;
+
+	case oGssRenewalRekey:
+		intptr = &options->gss_renewal_rekey;
 		goto parse_flag;
 
 	case oBatchMode:
@@ -1027,6 +1064,12 @@ parse_int:
 		intptr = &options->visual_host_key;
 		goto parse_flag;
 
+#ifdef __APPLE_KEYCHAIN__
+	case oAskPassGUI:
+		intptr = &options->ask_pass_gui;
+		goto parse_flag;
+#endif
+
 	case oIPQoS:
 		arg = strdelim(&s);
 		if ((value = parse_ipqos(arg)) == -1)
@@ -1168,7 +1211,12 @@ initialize_options(Options * options)
 	options->pubkey_authentication = -1;
 	options->challenge_response_authentication = -1;
 	options->gss_authentication = -1;
+	options->gss_keyex = -1;
 	options->gss_deleg_creds = -1;
+	options->gss_trust_dns = -1;
+	options->gss_renewal_rekey = -1;
+	options->gss_client_identity = NULL;
+	options->gss_server_identity = NULL;
 	options->password_authentication = -1;
 	options->kbd_interactive_authentication = -1;
 	options->kbd_interactive_devices = NULL;
@@ -1230,6 +1278,9 @@ initialize_options(Options * options)
 	options->use_roaming = -1;
 	options->visual_host_key = -1;
 	options->zero_knowledge_password_authentication = -1;
+#ifdef __APPLE_KEYCHAIN__
+	options->ask_pass_gui = -1;
+#endif
 	options->ip_qos_interactive = -1;
 	options->ip_qos_bulk = -1;
 	options->request_tty = -1;
@@ -1268,8 +1319,14 @@ fill_default_options(Options * options)
 		options->challenge_response_authentication = 1;
 	if (options->gss_authentication == -1)
 		options->gss_authentication = 0;
+	if (options->gss_keyex == -1)
+		options->gss_keyex = 0;
 	if (options->gss_deleg_creds == -1)
 		options->gss_deleg_creds = 0;
+	if (options->gss_trust_dns == -1)
+		options->gss_trust_dns = 0;
+	if (options->gss_renewal_rekey == -1)
+		options->gss_renewal_rekey = 0;
 	if (options->password_authentication == -1)
 		options->password_authentication = 1;
 	if (options->kbd_interactive_authentication == -1)
@@ -1379,6 +1436,10 @@ fill_default_options(Options * options)
 		options->visual_host_key = 0;
 	if (options->zero_knowledge_password_authentication == -1)
 		options->zero_knowledge_password_authentication = 0;
+#ifdef __APPLE_KEYCHAIN__
+	if (options->ask_pass_gui == -1)
+		options->ask_pass_gui = 1;
+#endif
 	if (options->ip_qos_interactive == -1)
 		options->ip_qos_interactive = IPTOS_LOWDELAY;
 	if (options->ip_qos_bulk == -1)

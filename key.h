@@ -27,11 +27,17 @@
 #define KEY_H
 
 #include "buffer.h"
+
+#ifdef __APPLE_CRYPTO__
+#include "ossl-rsa.h"
+#include "ossl-dsa.h"
+#else
 #include <openssl/rsa.h>
 #include <openssl/dsa.h>
 #ifdef OPENSSL_HAS_ECC
 #include <openssl/ec.h>
 #endif
+#endif /* __APPLE_CRYPTO__ */
 
 typedef struct Key Key;
 enum types {
@@ -44,6 +50,7 @@ enum types {
 	KEY_ECDSA_CERT,
 	KEY_RSA_CERT_V00,
 	KEY_DSA_CERT_V00,
+	KEY_NULL,
 	KEY_UNSPEC
 };
 enum fp_type {

@@ -3572,9 +3572,18 @@ x11_connect_display(void)
 	}
 #endif
 	/*
+	 * Check if the display is from launchd, then...
 	 * Check if it is a unix domain socket.  Unix domain displays are in
 	 * one of the following formats: unix:d[.s], :d[.s], ::d[.s]
 	 */
+	if (strncmp(display, "/tmp/launch", 11) == 0) {
+		sock = connect_local_xsocket_path(display);
+		if (sock < 0)
+			return -1;
+
+		/* OK, we now have a connection to the display. */
+		return sock;
+	}
 	if (strncmp(display, "unix:", 5) == 0 ||
 	    display[0] == ':') {
 		/* Connect to the unix domain socket. */

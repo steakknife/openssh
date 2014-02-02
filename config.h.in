@@ -74,6 +74,18 @@
 /* Define if your snprintf is busted */
 #undef BROKEN_SNPRINTF
 
+/* platform uses an in-memory credentials cache */
+#undef USE_CCAPI
+
+/* platform has a Security Authorization Session API */
+#undef USE_SECURITY_SESSION_API
+
+/* Define to 1 if you have the `copyfile' function. */
+#undef HAVE_COPYFILE
+
+/* Define to 1 if you have the <copyfile.h> header file. */
+#undef HAVE_COPYFILE_H
+
 /* FreeBSD strnvis does not do what we need */
 #undef BROKEN_STRNVIS
 

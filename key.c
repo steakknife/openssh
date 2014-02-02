@@ -39,8 +39,13 @@
 #include <sys/param.h>
 #include <sys/types.h>
 
+#ifdef __APPLE_CRYPTO__
+#include "ossl-evp.h"
+#else
 #include <openssl/evp.h>
-#include <openbsd-compat/openssl-compat.h>
+#endif
+
+#include "openbsd-compat/openssl-compat.h"
 
 #include <stdarg.h>
 #include <stdio.h>

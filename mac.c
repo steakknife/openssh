@@ -27,7 +27,11 @@
 
 #include <sys/types.h>
 
+#ifdef __APPLE_CRYPTO__
+#include "ossl-hmac.h"
+#else
 #include <openssl/hmac.h>
+#endif
 
 #include <stdarg.h>
 #include <string.h>

@@ -22,7 +22,11 @@
 #include <stdarg.h>
 #include <string.h>
 
+#ifdef __APPLE_CRYPTO__
+#include "ossl-evp.h"
+#else
 #include <openssl/evp.h>
+#endif
 
 #include "xmalloc.h"
 #include "log.h"
@@ -31,7 +35,11 @@
 #include "openbsd-compat/openssl-compat.h"
 
 #ifndef USE_BUILTIN_RIJNDAEL
+#ifdef __APPLE_CRYPTO__
+#include "ossl-aes.h"
+#else
 #include <openssl/aes.h>
+#endif /* __APPLE_CRYPTO__ */
 #endif
 
 struct ssh_aes_ctr_ctx
@@ -103,6 +111,9 @@ ssh_aes_ctr_cleanup(EVP_CIPHER_CTX *ctx)
 	struct ssh_aes_ctr_ctx *c;
 
 	if ((c = EVP_CIPHER_CTX_get_app_data(ctx)) != NULL) {
+#ifdef __APPLE_CRYPTO__
+		AES_destroy_ctx(&c->aes_ctx);
+#endif
 		memset(c, 0, sizeof(*c));
 		free(c);
 		EVP_CIPHER_CTX_set_app_data(ctx, NULL);

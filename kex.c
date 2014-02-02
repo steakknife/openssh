@@ -33,7 +33,11 @@
 #include <stdlib.h>
 #include <string.h>
 
+#ifdef __APPLE_CRYPTO__
+#include "ossl-crypto.h"
+#else
 #include <openssl/crypto.h>
+#endif
 
 #include "xmalloc.h"
 #include "ssh2.h"
@@ -49,6 +53,10 @@
 #include "dispatch.h"
 #include "monitor.h"
 #include "roaming.h"
+
+#ifdef GSSAPI
+#include "ssh-gss.h"
+#endif
 
 #if OPENSSL_VERSION_NUMBER >= 0x00907000L
 # if defined(HAVE_EVP_SHA256)
@@ -403,6 +411,42 @@ choose_kex(Kex *k, char *client, char *server)
 	k->kex_type = kexalg->type;
 	k->evp_md = kexalg->mdfunc();
 	k->ec_nid = kexalg->ec_nid;
+/* apple changes
+	if (strcmp(k->name, KEX_DH1) == 0) {
+		k->kex_type = KEX_DH_GRP1_SHA1;
+		k->evp_md = EVP_sha1();
+	} else if (strcmp(k->name, KEX_DH14) == 0) {
+		k->kex_type = KEX_DH_GRP14_SHA1;
+		k->evp_md = EVP_sha1();
+	} else if (strcmp(k->name, KEX_DHGEX_SHA1) == 0) {
+		k->kex_type = KEX_DH_GEX_SHA1;
+		k->evp_md = EVP_sha1();
+#if OPENSSL_VERSION_NUMBER >= 0x00907000L
+	} else if (strcmp(k->name, KEX_DHGEX_SHA256) == 0) {
+		k->kex_type = KEX_DH_GEX_SHA256;
+		k->evp_md = evp_ssh_sha256();
+	} else if (strncmp(k->name, KEX_ECDH_SHA2_STEM,
+	    sizeof(KEX_ECDH_SHA2_STEM) - 1) == 0) {
+ 		k->kex_type = KEX_ECDH_SHA2;
+		k->evp_md = kex_ecdh_name_to_evpmd(k->name);
+#endif
+#ifdef GSSAPI
+	} else if (strncmp(k->name, KEX_GSS_GEX_SHA1_ID,
+	    sizeof(KEX_GSS_GEX_SHA1_ID) - 1) == 0) {
+		k->kex_type = KEX_GSS_GEX_SHA1;
+		k->evp_md = EVP_sha1();
+	} else if (strncmp(k->name, KEX_GSS_GRP1_SHA1_ID,
+	    sizeof(KEX_GSS_GRP1_SHA1_ID) - 1) == 0) {
+		k->kex_type = KEX_GSS_GRP1_SHA1;
+		k->evp_md = EVP_sha1();
+	} else if (strncmp(k->name, KEX_GSS_GRP14_SHA1_ID,
+	    sizeof(KEX_GSS_GRP14_SHA1_ID) - 1) == 0) {
+		k->kex_type = KEX_GSS_GRP14_SHA1;
+		k->evp_md = EVP_sha1();
+#endif
+	} else
+		fatal("bad kex alg %s", k->name);
+*/
 }
 
 static void

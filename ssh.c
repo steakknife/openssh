@@ -71,8 +71,13 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
+#ifdef __APPLE_CRYPTO__
+#include "ossl-evp.h"
+#include "ossl-err.h"
+#else
 #include <openssl/evp.h>
 #include <openssl/err.h>
+#endif
 #include "openbsd-compat/openssl-compat.h"
 #include "openbsd-compat/sys-queue.h"
 

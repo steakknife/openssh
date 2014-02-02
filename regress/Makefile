@@ -1,5 +1,8 @@
 #	$OpenBSD: Makefile,v 1.65 2013/04/18 02:46:12 djm Exp $
 
+.OBJDIR=$(OBJ)
+.CURDIR=$(shell pwd)
+
 REGRESS_TARGETS=	t1 t2 t3 t4 t5 t6 t7 t8 t9 t-exec
 tests:		$(REGRESS_TARGETS)
 
@@ -32,7 +35,6 @@ LTESTS= 	connect \
 		agent \
 		agent-getpeereid \
 		agent-timeout \
-		agent-ptrace \
 		keyscan \
 		keygen-change \
 		keygen-convert \
@@ -54,6 +56,8 @@ LTESTS= 	connect \
 		addrmatch \
 		localcommand \
 		forcecommand \
+		utmpx-osx \
+		gssapi \
 		portnum \
 		keytype \
 		kextype \

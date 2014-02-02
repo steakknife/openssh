@@ -37,7 +37,11 @@
 #ifndef CIPHER_H
 #define CIPHER_H
 
+#ifdef __APPLE_CRYPTO__
+#include "ossl-evp.h"
+#else
 #include <openssl/evp.h>
+#endif
 /*
  * Cipher types for SSH-1.  New types can be added, but old types should not
  * be removed for compatibility.  The maximum allowed value is 31.

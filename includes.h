@@ -166,7 +166,11 @@
 # endif
 #endif
 
+#ifdef __APPLE_CRYPTO__
+#include "ossl-crypto.h"
+#else
 #include <openssl/opensslv.h> /* For OPENSSL_VERSION_NUMBER */
+#endif
 
 #include "defines.h"
 

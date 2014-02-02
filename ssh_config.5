@@ -132,6 +132,21 @@ Valid arguments are
 (use IPv4 only), or
 .Dq inet6
 (use IPv6 only).
+.It Cm AskPassGUI
+Specifies whether to display the graphical password dialog when
+publickey authentication is used and a password is required to
+decrypt the private key.
+This keyword is predicated on
+.Cm KeychainIntegration
+being enabled.
+The argument to this keyword must be
+.Dq yes
+or
+.Dq no .
+The default is
+.Dq yes .
+Note that the graphical password dialog will automatically add
+identities to the authentication agent (if any).
 .It Cm BatchMode
 If set to
 .Dq yes ,
@@ -529,11 +544,43 @@ Specifies whether user authentication based on GSSAPI is allowed.
 The default is
 .Dq no .
 Note that this option applies to protocol version 2 only.
+.It Cm GSSAPIKeyExchange
+Specifies whether key exchange based on GSSAPI may be used. When using
+GSSAPI key exchange the server need not have a host key.
+The default is
+.Dq no .
+Note that this option applies to protocol version 2 only.
+.It Cm GSSAPIClientIdentity
+If set, specifies the GSSAPI client identity that ssh should use when 
+connecting to the server. The default is unset, which means that the default 
+identity will be used.
+.It Cm GSSAPIServerIdentity
+If set, specifies the GSSAPI server identity that ssh should expect when 
+connecting to the server. The default is unset, which means that the
+expected GSSAPI server identity will be determined from the target
+hostname.
 .It Cm GSSAPIDelegateCredentials
 Forward (delegate) credentials to the server.
 The default is
 .Dq no .
-Note that this option applies to protocol version 2 only.
+Note that this option applies to protocol version 2 connections using GSSAPI.
+.It Cm GSSAPIRenewalForcesRekey
+If set to 
+.Dq yes
+then renewal of the client's GSSAPI credentials will force the rekeying of the
+ssh connection. With a compatible server, this can delegate the renewed 
+credentials to a session on the server.
+The default is
+.Dq no .
+.It Cm GSSAPITrustDns
+Set to 
+.Dq yes to indicate that the DNS is trusted to securely canonicalize
+the name of the host being connected to. If 
+.Dq no, the hostname entered on the
+command line will be passed untouched to the GSSAPI library.
+The default is
+.Dq no .
+This option only applies to protocol version 2 connections using GSSAPI.
 .It Cm HashKnownHosts
 Indicates that
 .Xr ssh 1
@@ -730,6 +777,16 @@ it may be zero or more of:
 .Dq pam ,
 and
 .Dq skey .
+.It Cm KeychainIntegration
+Specifies whether to enable Keychain support on Mac OS X.
+If Keychain support is enabled, then passwords for identities can be
+managed via the Mac OS X Keychain.
+The value for this keyword must be
+.Dq yes
+or
+.Dq no .
+The default is
+.Dq yes .
 .It Cm KexAlgorithms
 Specifies the available KEX (Key Exchange) algorithms.
 Multiple algorithms must be comma-separated.
@@ -1268,7 +1325,8 @@ Specifies the full pathname of the
 .Xr xauth 1
 program.
 The default is
-.Pa /usr/X11R6/bin/xauth .
+.Pa xauth
+(which causes ssh to search $PATH).
 .El
 .Sh PATTERNS
 A
