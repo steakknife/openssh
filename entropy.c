@@ -39,9 +39,15 @@
 #include <unistd.h>
 #include <stddef.h> /* for offsetof */
 
+#ifdef __APPLE_CRYPTO__
+#include "ossl-rand.h"
+#include "ossl-crypto.h"
+#include "ossl-err.h"
+#else
 #include <openssl/rand.h>
 #include <openssl/crypto.h>
 #include <openssl/err.h>
+#endif
 
 #include "ssh.h"
 #include "misc.h"

@@ -170,8 +170,13 @@ auth_krb5_password(Authctxt *authctxt, const char *password)
 
 	len = strlen(authctxt->krb5_ticket_file) + 6;
 	authctxt->krb5_ccname = xmalloc(len);
+#ifdef USE_CCAPI
+	snprintf(authctxt->krb5_ccname, len, "API:%s",
+	    authctxt->krb5_ticket_file);
+#else
 	snprintf(authctxt->krb5_ccname, len, "FILE:%s",
 	    authctxt->krb5_ticket_file);
+#endif
 
 #ifdef USE_PAM
 	if (options.use_pam)
@@ -229,12 +234,23 @@ ssh_krb5_cc_gen(krb5_context ctx, krb5_ccache *ccache) {
 	int tmpfd, ret, oerrno;
 	char ccname[40];
 	mode_t old_umask;
+#ifdef USE_CCAPI
+	char cctemplate[] = "API:%d:krb5cc_%d_%d";
 
 	ret = snprintf(ccname, sizeof(ccname),
-	    "FILE:/tmp/krb5cc_%d_XXXXXXXXXX", geteuid());
+		       cctemplate, (int)geteuid(), (int)getpid(), (int)time(NULL));
 	if (ret < 0 || (size_t)ret >= sizeof(ccname))
 		return ENOMEM;
 
+#else
+	char cctemplate[] = "FILE:/tmp/krb5cc_%d_XXXXXXXXXX";
+	int tmpfd;
+
+	ret = snprintf(ccname, sizeof(ccname),
+		       cctemplate, geteuid());
+	if (ret < 0 || (size_t)ret >= sizeof(ccname))
+		return ENOMEM;
+	
 	old_umask = umask(0177);
 	tmpfd = mkstemp(ccname + strlen("FILE:"));
 	oerrno = errno;
@@ -251,6 +267,7 @@ ssh_krb5_cc_gen(krb5_context ctx, krb5_ccache *ccache) {
 		return oerrno;
 	}
 	close(tmpfd);
+#endif
 
 	return (krb5_cc_resolve(ctx, ccname, ccache));
 }

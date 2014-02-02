@@ -39,7 +39,11 @@
 
 #include <sys/types.h>
 
+#ifdef __APPLE_CRYPTO__
+#include "ossl-md5.h"
+#else
 #include <openssl/md5.h>
+#endif
 
 #include <string.h>
 #include <stdarg.h>

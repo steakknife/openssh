@@ -357,11 +357,6 @@ DESCRIPTION
              which allows the verification of the KDC's identity.  The default
              is ``no''.
 
-     KerberosGetAFSToken
-             If AFS is active and the user has a Kerberos 5 TGT, attempt to
-             acquire an AFS token before accessing the user's home directory.
-             The default is ``no''.
-
      KerberosOrLocalPasswd
              If password authentication through Kerberos fails then the
              password will be validated via any additional local mechanism
@@ -473,6 +468,8 @@ DESCRIPTION
              Specifies the maximum number of open sessions permitted per
              network connection.  The default is 10.
 
+	     Has no effect if sshd is being run from inetd(8).
+
      MaxStartups
              Specifies the maximum number of concurrent unauthenticated
              connections to the SSH daemon.  Additional connections will be
@@ -487,9 +484,11 @@ DESCRIPTION
              increases linearly and all connection attempts are refused if the
              number of unauthenticated connections reaches ``full'' (60).
 
+	     Has no effect if sshd is being run from inetd(8).
+
      PasswordAuthentication
-             Specifies whether password authentication is allowed.  The
-             default is ``yes''.
+             Specifies whether password authentication is allowed.  The de-
+             fault is ``no''.
 
      PermitEmptyPasswords
              When password authentication is allowed, it specifies whether the
@@ -591,6 +590,10 @@ DESCRIPTION
              default is ``yes''.  This option applies to protocol version 1
              only.
 
+     SACLSupport
+             Deprecated in favor of SACL enforcement in the PAM stack
+	     (/etc/pam.d/sshd). Option has no effect.
+
      ServerKeyBits
              Defines the number of bits in the ephemeral protocol version 1
              server key.  The minimum value is 512, and the default is 1024.
@@ -676,7 +679,7 @@ DESCRIPTION
              either PasswordAuthentication or ChallengeResponseAuthentication.
 
              If UsePAM is enabled, you will not be able to run sshd(8) as a
-             non-root user.  The default is ``no''.
+             non-root user.  The default is ``yes''.
 
      UsePrivilegeSeparation
              Specifies whether sshd(8) separates privileges by creating an

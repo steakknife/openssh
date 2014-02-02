@@ -18,7 +18,11 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
+#ifdef __APPLE_CRYPTO__
+#include "ossl-bn.h"
+#else
 #include <openssl/bn.h>
+#endif
 
 #include <netdb.h>
 #include <errno.h>

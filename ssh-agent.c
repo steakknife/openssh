@@ -49,8 +49,13 @@
 #endif
 #include "openbsd-compat/sys-queue.h"
 
+#ifdef __APPLE_CRYPTO__
+#include "ossl-evp.h"
+#include "ossl-md5.h"
+#else
 #include <openssl/evp.h>
 #include <openssl/md5.h>
+#endif
 #include "openbsd-compat/openssl-compat.h"
 
 #include <errno.h>
@@ -65,6 +70,9 @@
 #include <time.h>
 #include <string.h>
 #include <unistd.h>
+#ifdef __APPLE_LAUNCHD__
+#include <launch.h>
+#endif
 
 #include "xmalloc.h"
 #include "ssh.h"
@@ -72,9 +80,11 @@
 #include "buffer.h"
 #include "key.h"
 #include "authfd.h"
+#include "authfile.h"
 #include "compat.h"
 #include "log.h"
 #include "misc.h"
+#include "keychain.h"
 
 #ifdef ENABLE_PKCS11
 #include "ssh-pkcs11.h"
@@ -793,6 +803,64 @@ process_remove_smartcard_key(SocketEntry *e)
 }
 #endif /* ENABLE_PKCS11 */
 
+static int
+add_identity_callback(const char *filename, const char *passphrase)
+{
+	Key *k;
+	int version;
+	Idtab *tab;
+
+	if ((k = key_load_private(filename, passphrase, NULL)) == NULL)
+		return 1;
+	switch (k->type) {
+	case KEY_RSA:
+	case KEY_RSA1:
+		if (RSA_blinding_on(k->rsa, NULL) != 1) {
+			key_free(k);
+			return 1;
+		}
+		break;
+	}
+	version = k->type == KEY_RSA1 ? 1 : 2;
+	tab = idtab_lookup(version);
+	if (lookup_identity(k, version) == NULL) {
+		Identity *id = xcalloc(1, sizeof(Identity));
+		id->key = k;
+		id->comment = xstrdup(filename);
+		if (id->comment == NULL) {
+			key_free(k);
+			return 1;
+		}
+		TAILQ_INSERT_TAIL(&tab->idlist, id, next);
+		tab->nentries++;
+	} else {
+		key_free(k);
+		return 1;
+	}
+
+	return 0;
+}
+
+#ifdef KEYCHAIN
+static void
+process_add_from_keychain(SocketEntry *e)
+{
+	int result;
+
+	result = add_identities_using_keychain(&add_identity_callback);
+
+	/* Start thread to wait for keychain notifications. */
+	keychain_thread_init();
+
+	/* e will be NULL when ssh-agent adds keys on its own at startup */
+	if (e) {
+		buffer_put_int(&e->output, 1);
+		buffer_put_char(&e->output,
+		    result ? SSH_AGENT_FAILURE : SSH_AGENT_SUCCESS);
+	}
+}
+#endif /* KEYCHAIN */
+
 /* dispatch incoming messages */
 
 static void
@@ -885,6 +953,11 @@ process_message(SocketEntry *e)
 		process_remove_smartcard_key(e);
 		break;
 #endif /* ENABLE_PKCS11 */
+#ifdef KEYCHAIN
+	case SSH_AGENTC_ADD_FROM_KEYCHAIN:
+		process_add_from_keychain(e);
+		break;
+#endif /* KEYCHAIN */
 	default:
 		/* Unknown message.  Respond with failure. */
 		error("Unknown message %d", type);
@@ -1126,7 +1199,11 @@ usage(void)
 int
 main(int ac, char **av)
 {
+#ifdef __APPLE_LAUNCHD__
+	int c_flag = 0, d_flag = 0, k_flag = 0, s_flag = 0, l_flag = 0;
+#else
 	int c_flag = 0, d_flag = 0, k_flag = 0, s_flag = 0;
+#endif
 	int sock, fd, ch, result, saved_errno;
 	u_int nalloc;
 	char *shell, *format, *pidstr, *agentsocket = NULL;
@@ -1160,7 +1237,11 @@ main(int ac, char **av)
 	__progname = ssh_get_progname(av[0]);
 	seed_rng();
 
+#ifdef __APPLE_LAUNCHD__
+	while ((ch = getopt(ac, av, "cdklsa:t:")) != -1) {
+#else
 	while ((ch = getopt(ac, av, "cdksa:t:")) != -1) {
+#endif
 		switch (ch) {
 		case 'c':
 			if (s_flag)
@@ -1170,6 +1251,11 @@ main(int ac, char **av)
 		case 'k':
 			k_flag++;
 			break;
+#ifdef __APPLE_LAUNCHD__
+		case 'l':
+			l_flag++;
+			break;
+#endif
 		case 's':
 			if (c_flag)
 				usage();
@@ -1196,7 +1282,11 @@ main(int ac, char **av)
 	ac -= optind;
 	av += optind;
 
+#ifdef __APPPLE_LAUNCHD__
+	if (ac > 0 && (c_flag || k_flag || s_flag || d_flag || l_flag))
+#else
 	if (ac > 0 && (c_flag || k_flag || s_flag || d_flag))
+#endif
 		usage();
 
 	if (ac == 0 && !c_flag && !s_flag) {
@@ -1252,6 +1342,53 @@ main(int ac, char **av)
 	 * Create socket early so it will exist before command gets run from
 	 * the parent.
 	 */
+#ifdef __APPLE_LAUNCHD__
+	if (l_flag) {
+		launch_data_t resp, msg, tmp;
+		size_t listeners_i;
+
+		msg = launch_data_new_string(LAUNCH_KEY_CHECKIN);
+
+		resp = launch_msg(msg);
+
+		if (NULL == resp) {
+			perror("launch_msg");
+			exit(1);
+		}
+		launch_data_free(msg);
+		switch (launch_data_get_type(resp)) {
+		case LAUNCH_DATA_ERRNO:
+			errno = launch_data_get_errno(resp);
+			perror("launch_msg response");
+			exit(1);
+		case LAUNCH_DATA_DICTIONARY:
+			break;
+		default:
+			fprintf(stderr, "launch_msg unknown response");
+			exit(1);
+		}
+		tmp = launch_data_dict_lookup(resp, LAUNCH_JOBKEY_SOCKETS);
+
+		if (NULL == tmp) {
+			fprintf(stderr, "no sockets\n");
+			exit(1);
+		}
+
+		tmp = launch_data_dict_lookup(tmp, "Listeners");
+
+		if (NULL == tmp) {
+			fprintf(stderr, "no known listeners\n");
+			exit(1);
+		}
+
+		for (listeners_i = 0; listeners_i < launch_data_array_get_count(tmp); listeners_i++) {
+			launch_data_t obj_at_ind = launch_data_array_get_index(tmp, listeners_i);
+			new_socket(AUTH_SOCKET, launch_data_get_fd(obj_at_ind));
+		}
+
+		launch_data_free(resp);
+	} else {
+#endif
 	sock = socket(AF_UNIX, SOCK_STREAM, 0);
 	if (sock < 0) {
 		perror("socket");
@@ -1273,6 +1410,14 @@ main(int ac, char **av)
 		perror("listen");
 		cleanup_exit(1);
 	}
+#ifdef __APPLE_LAUNCHD__
+	}
+#endif
+
+#ifdef __APPLE_LAUNCHD__
+	if (l_flag)
+		goto skip2;
+#endif
 
 	/*
 	 * Fork, and have the parent execute the command, if any, or present
@@ -1345,6 +1490,7 @@ skip:
 	pkcs11_init(0);
 #endif
 	new_socket(AUTH_SOCKET, sock);
+skip2:
 	if (ac > 0)
 		parent_alive_interval = 10;
 	idtab_init();
@@ -1354,6 +1500,10 @@ skip:
 	signal(SIGHUP, cleanup_handler);
 	signal(SIGTERM, cleanup_handler);
 	nalloc = 0;
+
+#ifdef KEYCHAIN
+	process_add_from_keychain(NULL);
+#endif
 
 	while (1) {
 		prepare_select(&readsetp, &writesetp, &max_fd, &nalloc, &tvp);

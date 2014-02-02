@@ -24,7 +24,11 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#ifdef __APPLE_CRYPTO__
+#include "ossl-crypto.h"
+#else
 #include <openssl/opensslv.h>
+#endif
 
 #ifdef OPENSSL_HAS_ECC
 # define KEX_ECDH_METHODS \

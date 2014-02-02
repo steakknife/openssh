@@ -39,8 +39,13 @@
 #include <sys/param.h>
 #include <sys/types.h>
 
+#ifdef __APPLE_CRYPTO__
+#include "ossl-evp.h"
+#else
 #include <openssl/evp.h>
-#include <openbsd-compat/openssl-compat.h>
+#endif
+
+#include "openbsd-compat/openssl-compat.h"
 
 #include <stdarg.h>
 #include <stdio.h>
@@ -976,6 +981,8 @@ key_ssh_name_from_type_nid(int type, int nid)
 		}
 		break;
 #endif /* OPENSSL_HAS_ECC */
+	case KEY_NULL:
+		return "null";
 	}
 	return "ssh-unknown";
 }
@@ -1281,6 +1288,8 @@ key_type_from_name(char *name)
 	    strcmp(name, "ecdsa-sha2-nistp521-cert-v01@openssh.com") == 0) {
 		return KEY_ECDSA_CERT;
 #endif
+	} else if (strcmp(name, "null") == 0) {
+		return KEY_NULL;
 	}
 
 	debug2("key_type_from_name: unknown key type '%s'", name);

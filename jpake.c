@@ -27,14 +27,21 @@
 
 #include "includes.h"
 
+#ifdef JPAKE
+
 #include <sys/types.h>
 
 #include <stdio.h>
 #include <string.h>
 #include <stdarg.h>
 
+#ifdef __APPLE_CRYPTO__
+#include "ossl-bn.h"
+#include "ossl-evp.h"
+#else
 #include <openssl/bn.h>
 #include <openssl/evp.h>
+#endif
 
 #include "xmalloc.h"
 #include "ssh2.h"
@@ -50,7 +57,6 @@
 #include "jpake.h"
 #include "schnorr.h"
 
-#ifdef JPAKE
 
 /* RFC3526 group 5, 1536 bits */
 #define JPAKE_GROUP_G "2"

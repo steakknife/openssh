@@ -41,9 +41,14 @@
 #include <sys/un.h>
 #include <sys/socket.h>
 
+#ifdef __APPLE_CRYPTO__
+#include "ossl-evp.h"
+#include "ossl-crypto.h"
+#else
 #include <openssl/evp.h>
 
 #include <openssl/crypto.h>
+#endif /* __APPLE_CRYPTO__ */
 #include <fcntl.h>
 #include <stdlib.h>
 #include <signal.h>
@@ -679,6 +684,29 @@ ssh_remove_all_identities(AuthenticationConnection *auth, int version)
 
 	buffer_init(&msg);
 	buffer_put_char(&msg, code);
+
+	if (ssh_request_reply(auth, &msg, &msg) == 0) {
+		buffer_free(&msg);
+		return 0;
+	}
+	type = buffer_get_char(&msg);
+	buffer_free(&msg);
+	return decode_reply(type);
+}
+
+/*
+ * Adds identities using passphrases stored in the keychain.  This call is not
+ * meant to be used by normal applications.
+ */
+
+int
+ssh_add_from_keychain(AuthenticationConnection *auth)
+{
+	Buffer msg;
+	int type;
+
+	buffer_init(&msg);
+	buffer_put_char(&msg, SSH_AGENTC_ADD_FROM_KEYCHAIN);
 
 	if (ssh_request_reply(auth, &msg, &msg) == 0) {
 		buffer_free(&msg);

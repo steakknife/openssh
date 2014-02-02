@@ -471,7 +471,7 @@ sshpam_thread(void *ctxtp)
 
 	if (compat20) {
 		if (!do_pam_account()) {
-			sshpam_err = PAM_ACCT_EXPIRED;
+			sshpam_err = PAM_PERM_DENIED;
 			goto auth_fail;
 		}
 		if (sshpam_authctxt->force_pwchange) {
@@ -793,10 +793,11 @@ sshpam_query(void *ctx, char **name, char **info,
 				xfree(msg);
 				return (0);
 			}
-			error("PAM: %s for %s%.100s from %.100s", msg,
+			error("PAM: %s for %s%.100s from %.100s via %s", msg,
 			    sshpam_authctxt->valid ? "" : "illegal user ",
 			    sshpam_authctxt->user,
-			    get_remote_name_or_ip(utmp_len, options.use_dns));
+			    get_remote_name_or_ip(utmp_len, options.use_dns),
+			    get_local_ipaddr(packet_get_connection_in()));
 			/* FALLTHROUGH */
 		default:
 			*num = 0;

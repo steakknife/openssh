@@ -17,10 +17,17 @@
  */
 
 #include "includes.h"
+#ifdef __APPLE_CRYPTO__
+#include "ossl-crypto.h"
+#include "ossl-evp.h"
+#include "ossl-rsa.h"
+#include "ossl-dsa.h"
+#else
 #include <openssl/opensslv.h>
 #include <openssl/evp.h>
 #include <openssl/rsa.h>
 #include <openssl/dsa.h>
+#endif
 
 /* Only in 0.9.8 */
 #ifndef OPENSSL_DSA_MAX_MODULUS_BITS

@@ -43,9 +43,15 @@
 #include <sys/param.h>
 #include <sys/uio.h>
 
+#ifdef __APPLE_CRYPTO__
+#include "ossl-err.h"
+#include "ossl-evp.h"
+#include "ossl-pem.h"
+#else
 #include <openssl/err.h>
 #include <openssl/evp.h>
 #include <openssl/pem.h>
+#endif
 
 /* compatibility with old or broken OpenSSL versions */
 #include "openbsd-compat/openssl-compat.h"

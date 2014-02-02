@@ -11,7 +11,13 @@ fi
 
 # Establish a AuthorizedKeysCommand in /var/run where it will have
 # acceptable directory permissions.
-KEY_COMMAND="/var/run/keycommand_${LOGNAME}"
+# Apple:
+# On OS X Mavricks, /var/run is writable by group daemon
+# which is not allowed by sshd for AuthorizedKeysCommand
+# so use /var/ssh-test
+$SUDO mkdir -m 0755 /var/ssh-test
+
+KEY_COMMAND="/var/ssh-test/keycommand_${LOGNAME}"
 cat << _EOF | $SUDO sh -c "cat > '$KEY_COMMAND'"
 #!/bin/sh
 test "x\$1" != "x${LOGNAME}" && exit 1
@@ -37,3 +43,5 @@ else
 fi
 
 $SUDO rm -f $KEY_COMMAND
+#Apple:
+$SUDO rm -rf /var/ssh-test

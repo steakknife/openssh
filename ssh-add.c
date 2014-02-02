@@ -41,7 +41,11 @@
 #include <sys/stat.h>
 #include <sys/param.h>
 
+#ifdef __APPLE_CRYPTO__
+#include "ossl-evp.h"
+#else
 #include <openssl/evp.h>
+#endif
 #include "openbsd-compat/openssl-compat.h"
 
 #include <fcntl.h>
@@ -62,6 +66,7 @@
 #include "authfile.h"
 #include "pathnames.h"
 #include "misc.h"
+#include "keychain.h"
 
 /* argv0 */
 extern char *__progname;
@@ -96,12 +101,24 @@ clear_pass(void)
 }
 
 static int
-delete_file(AuthenticationConnection *ac, const char *filename, int key_only)
+add_from_keychain(AuthenticationConnection *ac)
+{
+	if (ssh_add_from_keychain(ac) == 0)
+		return -1;
+
+	fprintf(stderr, "Added keychain identities.\n");
+	return 0;
+}
+
+static int
+delete_file(AuthenticationConnection *ac, const char *filename, int key_only, int keychain)
 {
 	Key *public = NULL, *cert = NULL;
 	char *certpath = NULL, *comment = NULL;
 	int ret = -1;
 
+	if (keychain)
+		remove_from_keychain(filename);
 	public = key_load_public(filename, &comment);
 	if (public == NULL) {
 		printf("Bad key file %s\n", filename);
@@ -164,7 +181,7 @@ delete_all(AuthenticationConnection *ac)
 }
 
 static int
-add_file(AuthenticationConnection *ac, const char *filename, int key_only)
+add_file(AuthenticationConnection *ac, const char *filename, int key_only, int keychain)
 {
 	Key *private, *cert;
 	char *comment = NULL;
@@ -201,11 +218,16 @@ add_file(AuthenticationConnection *ac, const char *filename, int key_only)
 
 	/* At first, try empty passphrase */
 	private = key_parse_private(&keyblob, filename, "", &comment);
+	if (keychain && private != NULL)
+	    store_in_keychain(filename, "");
 	if (comment == NULL)
 		comment = xstrdup(filename);
 	/* try last */
-	if (private == NULL && pass != NULL)
+	if (private == NULL && pass != NULL) {
 		private = key_parse_private(&keyblob, filename, pass, NULL);
+		if (keychain && private != NULL)
+		    store_in_keychain(filename, pass);
+	}
 	if (private == NULL) {
 		/* clear passphrase since it did not work */
 		clear_pass();
@@ -221,8 +243,11 @@ add_file(AuthenticationConnection *ac, const char *filename, int key_only)
 			}
 			private = key_parse_private(&keyblob, filename, pass,
 			    &comment);
-			if (private != NULL)
+			if (private != NULL) {
+				if (keychain) 
+				    store_in_keychain(filename, pass);
 				break;
+			}
 			clear_pass();
 			snprintf(msg, sizeof msg,
 			    "Bad passphrase, try again for %.200s: ", comment);
@@ -376,13 +401,13 @@ lock_agent(AuthenticationConnection *ac, int lock)
 }
 
 static int
-do_file(AuthenticationConnection *ac, int deleting, int key_only, char *file)
+do_file(AuthenticationConnection *ac, int deleting, int key_only, char *file, int keychain)
 {
 	if (deleting) {
-		if (delete_file(ac, file, key_only) == -1)
+		if (delete_file(ac, file, key_only, keychain) == -1)
 			return -1;
 	} else {
-		if (add_file(ac, file, key_only) == -1)
+		if (add_file(ac, file, key_only, keychain) == -1)
 			return -1;
 	}
 	return 0;
@@ -404,6 +429,15 @@ usage(void)
 	fprintf(stderr, "  -X          Unlock agent.\n");
 	fprintf(stderr, "  -s pkcs11   Add keys from PKCS#11 provider.\n");
 	fprintf(stderr, "  -e pkcs11   Remove keys provided by PKCS#11 provider.\n");
+#ifdef SMARTCARD
+	fprintf(stderr, "  -s reader   Add key in smartcard reader.\n");
+	fprintf(stderr, "  -e reader   Remove key in smartcard reader.\n");
+#endif
+#ifdef KEYCHAIN
+	fprintf(stderr, "  -A          Add all identities stored in your keychain.\n");
+	fprintf(stderr, "  -K          Store passphrases in your keychain.\n");
+	fprintf(stderr, "              With -d, remove passphrases from your keychain.\n");
+#endif
 }
 
 int
@@ -414,6 +448,7 @@ main(int argc, char **argv)
 	AuthenticationConnection *ac = NULL;
 	char *pkcs11provider = NULL;
 	int i, ch, deleting = 0, ret = 0, key_only = 0;
+	int keychain = 0;
 
 	/* Ensure that fds 0, 1 and 2 are open or directed to /dev/null */
 	sanitise_stdfd();
@@ -430,7 +465,7 @@ main(int argc, char **argv)
 		    "Could not open a connection to your authentication agent.\n");
 		exit(2);
 	}
-	while ((ch = getopt(argc, argv, "klLcdDxXe:s:t:")) != -1) {
+	while ((ch = getopt(argc, argv, "klLcdDxXe:s:t:KA")) != -1) {
 		switch (ch) {
 		case 'k':
 			key_only = 1;
@@ -455,6 +490,13 @@ main(int argc, char **argv)
 			if (delete_all(ac) == -1)
 				ret = 1;
 			goto done;
+		case 'A':
+			if (add_from_keychain(ac) == -1)
+				ret = 1;
+			goto done;
+		case 'K':
+			keychain = 1;
+			break;
 		case 's':
 			pkcs11provider = optarg;
 			break;
@@ -485,6 +527,7 @@ main(int argc, char **argv)
 	if (argc == 0) {
 		char buf[MAXPATHLEN];
 		struct passwd *pw;
+		char *pw_dir;
 		struct stat st;
 		int count = 0;
 
@@ -495,21 +538,25 @@ main(int argc, char **argv)
 			goto done;
 		}
 
+		pw_dir = xstrdup(pw->pw_dir);
+
 		for (i = 0; default_files[i]; i++) {
-			snprintf(buf, sizeof(buf), "%s/%s", pw->pw_dir,
+			snprintf(buf, sizeof(buf), "%s/%s", pw_dir,
 			    default_files[i]);
 			if (stat(buf, &st) < 0)
 				continue;
-			if (do_file(ac, deleting, key_only, buf) == -1)
+			if (do_file(ac, deleting, key_only, buf, keychain) == -1)
 				ret = 1;
 			else
 				count++;
 		}
 		if (count == 0)
 			ret = 1;
+
+		xfree(pw_dir);
 	} else {
 		for (i = 0; i < argc; i++) {
-			if (do_file(ac, deleting, key_only, argv[i]) == -1)
+			if (do_file(ac, deleting, key_only, argv[i], keychain) == -1)
 				ret = 1;
 		}
 	}

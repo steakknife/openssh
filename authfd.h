@@ -49,6 +49,9 @@
 #define SSH2_AGENTC_ADD_ID_CONSTRAINED		25
 #define SSH_AGENTC_ADD_SMARTCARD_KEY_CONSTRAINED 26
 
+/* keychain */
+#define SSH_AGENTC_ADD_FROM_KEYCHAIN		27
+
 #define	SSH_AGENT_CONSTRAIN_LIFETIME		1
 #define	SSH_AGENT_CONSTRAIN_CONFIRM		2
 
@@ -90,5 +93,8 @@ ssh_decrypt_challenge(AuthenticationConnection *, Key *, BIGNUM *, u_char[16],
 int
 ssh_agent_sign(AuthenticationConnection *, Key *, u_char **, u_int *, u_char *,
     u_int);
+
+int
+ssh_add_from_keychain(AuthenticationConnection *auth);
 
 #endif				/* AUTHFD_H */

@@ -19,7 +19,7 @@
 .Sh SYNOPSIS
 .Nm scp
 .Bk -words
-.Op Fl 12346BCpqrv
+.Op Fl 12346BCEpqrv
 .Op Fl c Ar cipher
 .Op Fl F Ar ssh_config
 .Op Fl i Ar identity_file
@@ -97,6 +97,8 @@ Passes the
 flag to
 .Xr ssh 1
 to enable compression.
+.It Fl E
+Preserves extended attributes, resource forks, and ACLs.  Requires both ends to be running Mac OS X 10.4 or later.
 .It Fl c Ar cipher
 Selects the cipher to use for encrypting the data transfer.
 This option is directly passed to

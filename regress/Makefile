@@ -1,5 +1,8 @@
 #	$OpenBSD: Makefile,v 1.62 2013/01/18 00:45:29 djm Exp $
 
+.OBJDIR=$(OBJ)
+.CURDIR=$(shell pwd)
+
 REGRESS_TARGETS=	t1 t2 t3 t4 t5 t6 t7 t8 t9 t-exec
 tests:		$(REGRESS_TARGETS)
 
@@ -31,7 +34,6 @@ LTESTS= 	connect \
 		agent \
 		agent-getpeereid \
 		agent-timeout \
-		agent-ptrace \
 		keyscan \
 		keygen-change \
 		keygen-convert \
@@ -52,6 +54,8 @@ LTESTS= 	connect \
 		addrmatch \
 		localcommand \
 		forcecommand \
+		utmpx-osx \
+		gssapi \
 		portnum \
 		keytype \
 		kextype \
@@ -149,15 +153,28 @@ t9: $(OBJ)/t9.out
 t-exec:	${LTESTS:=.sh}
 	@if [ "x$?" = "x" ]; then exit 0; fi; \
 	for TEST in ""$?; do \
-		echo "run test $${TEST}" ... 1>&2; \
-		(env SUDO="${SUDO}" TEST_ENV=${TEST_ENV} sh ${.CURDIR}/test-exec.sh ${.OBJDIR} ${.CURDIR}/$${TEST}) || exit $$?; \
+		echo "[BEGIN] $${TEST}"; \
+		(env SUDO="${SUDO}" TEST_ENV=${TEST_ENV} sh $(.CURDIR)/test-exec.sh $(.OBJDIR) $(.CURDIR)/$${TEST}); \
+		ret=$$?; \
+		if [[ 0 -eq $${ret} ]]; then \
+			echo "[PASS] $${TEST}"; \
+		else\
+			echo "[FAIL] $${TEST}"; \
+			exit $${ret};\
+		fi;\
 	done
 
 t-exec-interop:	${INTEROP_TESTS:=.sh}
 	@if [ "x$?" = "x" ]; then exit 0; fi; \
 	for TEST in ""$?; do \
-		echo "run test $${TEST}" ... 1>&2; \
-		(env SUDO="${SUDO}" TEST_ENV=${TEST_ENV} sh ${.CURDIR}/test-exec.sh ${.OBJDIR} ${.CURDIR}/$${TEST}) || exit $$?; \
+		echo "[BEGIN] $${TEST}"; \
+		(env SUDO="${SUDO}" TEST_ENV=${TEST_ENV} sh $(.CURDIR)/test-exec.sh $(.OBJDIR) $(.CURDIR)/$${TEST}); \
+		ret=$$?; \
+		if [[ 0 -eq $${ret} ]]; then \
+			echo "[PASS] $${TEST}"; \
+		else\
+			echo "[FAIL] $${TEST}"; \
+		fi;\
 	done
 
 # Not run by default

@@ -111,6 +111,10 @@
 #include "msg.h"
 #include "roaming.h"
 
+#ifdef GSSAPI
+#include "ssh-gss.h"
+#endif
+
 /* import options */
 extern Options options;
 
@@ -310,15 +314,59 @@ client_x11_get_proto(const char *display, const char *xauth_path,
 	FILE *f;
 	int got_data = 0, generated = 0, do_unlink = 0, i;
 	char *xauthdir, *xauthfile;
-	struct stat st;
 	u_int now;
+#if __APPLE__
+	char *strptr = NULL;
+	int is_launchd = 0, len_to_screen = 0;
+#endif /* __APPLE__ */
 
 	xauthdir = xauthfile = NULL;
 	*_proto = proto;
 	*_data = data;
 	proto[0] = data[0] = '\0';
 
-	if (xauth_path == NULL ||(stat(xauth_path, &st) == -1)) {
+#if __APPLE__
+	if (xauth_path) {
+		char tmpdir[MAXPATHLEN];
+		size_t len = 0;
+
+		len = confstr(_CS_DARWIN_USER_TEMP_DIR, tmpdir, sizeof(tmpdir));
+		if (len == 0) {
+			strlcpy(tmpdir, "/tmp", sizeof(tmpdir));
+		}
+
+		/* Try executing xauth (as we do below) rather than using stat,
+		 * since we want to search our $PATH.  Note that the xauth_test
+		 * file is not created if it doesn't exist, so there will be no
+		 * turds leftover.  If for some reason it does exist it will have
+		 * no effect assuming it is valid.  If it is invalid, the only
+		 * result is that xauth will error out, and X11 forwarding will
+		 * be disabled.
+		 */
+		snprintf(cmd, sizeof(cmd),
+		         "%s -f %s/xauth_test exit > /dev/null 2> /dev/null",
+			 xauth_path, tmpdir);
+
+		debug2("Checking for xauth using %s\n", cmd);
+		if (system(cmd) != 0) {
+			xauth_path = NULL;
+		}
+	}
+#endif
+
+#if __APPLE__
+	/* Try executing xauth (as we do below) rather than using stat,
+	 * since we want to search our $PATH
+	 */
+	if (xauth_path) {
+		snprintf(cmd, sizeof(cmd), "%s exit", xauth_path);
+		if (system(cmd) != 0) {
+			xauth_path = NULL;
+		}
+	}
+#endif
+
+	if (xauth_path == NULL) {
 		debug("No xauth program.");
 	} else if (!client_x11_display_valid(display)) {
 		logit("DISPLAY '%s' invalid, falling back to fake xauth data",
@@ -328,6 +376,24 @@ client_x11_get_proto(const char *display, const char *xauth_path,
 			debug("x11_get_proto: DISPLAY not set");
 			return;
 		}
+#if __APPLE__
+		/*
+		 * If using launchd socket, then remove the screen number from
+		 * end of $DISPLAY. is_launchd is used later in this function
+		 * to determine if an error should be displayed.
+		 */
+		if (strncmp(display, "/tmp/launch-", 12) == 0) {
+			is_launchd = 1;
+			if (NULL != (strptr = rindex(display, ':')) &&
+			    NULL != (strptr = index(strptr, '.'))) {
+				debug("x11_get_proto: $DISPLAY is launchd, removing screennum");
+				len_to_screen = strptr - display;
+				strlcpy(xdisplay, display, (len_to_screen + 1));
+				display = xdisplay;
+				setenv("DISPLAY", display, 1);
+			}
+		}
+#endif /* __APPLE__ */
 		/*
 		 * Handle FamilyLocal case where $DISPLAY does
 		 * not match an authorization entry.  For this we
@@ -409,6 +475,9 @@ client_x11_get_proto(const char *display, const char *xauth_path,
 	if (!got_data) {
 		u_int32_t rnd = 0;
 
+#if __APPLE__
+		if (!is_launchd)
+#endif /* __APPLE__ */
 		logit("Warning: No xauth data; "
 		    "using fake authentication data for X11 forwarding.");
 		strlcpy(proto, SSH_X11_PROTO, sizeof proto);
@@ -1599,6 +1668,15 @@ client_loop(int have_pty, int escape_char_arg, int ssh2_chan_id)
 		/* Do channel operations unless rekeying in progress. */
 		if (!rekeying) {
 			channel_after_select(readset, writeset);
+
+#ifdef GSSAPI
+			if (options.gss_renewal_rekey &&
+			    ssh_gssapi_credentials_updated(GSS_C_NO_CONTEXT)) {
+				debug("credentials updated - forcing rekey");
+				need_rekeying = 1;
+			}
+#endif
+
 			if (need_rekeying || packet_need_rekeying()) {
 				debug("need rekeying");
 				xxx_kex->done = 0;

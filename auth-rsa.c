@@ -19,8 +19,13 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 
+#ifdef __APPLE_CRYPTO__
+#include "ossl-rsa.h"
+#include "ossl-md5.h"
+#else
 #include <openssl/rsa.h>
 #include <openssl/md5.h>
+#endif
 
 #include <pwd.h>
 #include <stdio.h>
